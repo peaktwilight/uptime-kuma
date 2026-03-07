@@ -730,6 +730,9 @@ export default {
             incidentHistoryLoading: false,
             incidentHistoryNextCursor: null,
             incidentHistoryHasMore: false,
+            heartbeatReloadDebounceTimer: null,
+            pendingHeartbeatReloadMaxBeats: null,
+            lastHeartbeatReloadMaxBeats: null,
         };
     },
     computed: {
@@ -928,15 +931,7 @@ export default {
                     if (res.ok) {
                         this.config = res.config;
 
-                        if (
-                            this.config.heartbeatBarDays === undefined ||
-                            this.config.heartbeatBarDays === null ||
-                            this.config.heartbeatBarDays === ""
-                        ) {
-                            this.config.heartbeatBarDays = 0;
-                        } else {
-                            this.config.heartbeatBarDays = parseInt(this.config.heartbeatBarDays, 10) || 0;
-                        }
+                        this.config.heartbeatBarDays = parseInt(this.config.heartbeatBarDays || 0, 10) || 0;
 
                         if (!this.config.customCSS) {
                             this.config.customCSS = "body {\n" + "  \n" + "}\n";
@@ -1023,15 +1018,7 @@ export default {
                     this.config.domainNameList = [];
                 }
 
-                if (
-                    this.config.heartbeatBarDays === undefined ||
-                    this.config.heartbeatBarDays === null ||
-                    this.config.heartbeatBarDays === ""
-                ) {
-                    this.config.heartbeatBarDays = 0;
-                } else {
-                    this.config.heartbeatBarDays = parseInt(this.config.heartbeatBarDays, 10) || 0;
-                }
+                this.config.heartbeatBarDays = parseInt(this.config.heartbeatBarDays || 0, 10) || 0;
 
                 if (this.config.icon) {
                     this.imgDataUrl = this.config.icon;
@@ -1065,6 +1052,12 @@ export default {
         // null means ?edit present, but no value
         if (this.$route.query.edit || this.$route.query.edit === null) {
             this.edit();
+        }
+    },
+    beforeUnmount() {
+        if (this.heartbeatReloadDebounceTimer) {
+            clearTimeout(this.heartbeatReloadDebounceTimer);
+            this.heartbeatReloadDebounceTimer = null;
         }
     },
     methods: {
@@ -1137,7 +1130,34 @@ export default {
          * @returns {void}
          */
         reloadHeartbeatData(maxBeats) {
-            this.loadHeartbeatData(maxBeats);
+            if (this.config.heartbeatBarDays <= 0) {
+                return;
+            }
+
+            const parsedMaxBeats = Number(maxBeats);
+            if (!Number.isFinite(parsedMaxBeats) || parsedMaxBeats <= 0) {
+                return;
+            }
+            const normalizedMaxBeats = Math.max(1, Math.min(100, Math.floor(parsedMaxBeats)));
+
+            this.pendingHeartbeatReloadMaxBeats = normalizedMaxBeats;
+
+            if (this.heartbeatReloadDebounceTimer) {
+                clearTimeout(this.heartbeatReloadDebounceTimer);
+            }
+
+            this.heartbeatReloadDebounceTimer = setTimeout(() => {
+                const nextMaxBeats = this.pendingHeartbeatReloadMaxBeats;
+                this.heartbeatReloadDebounceTimer = null;
+
+                // Avoid duplicate reloads with the same width-derived beat count.
+                if (nextMaxBeats === this.lastHeartbeatReloadMaxBeats) {
+                    return;
+                }
+
+                this.lastHeartbeatReloadMaxBeats = nextMaxBeats;
+                this.loadHeartbeatData(nextMaxBeats);
+            }, 200);
         },
 
         /**

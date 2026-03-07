@@ -608,9 +608,11 @@ test("Test getAggregatedBuckets - Bucket size calculation", async (t) => {
     let buckets50 = c.getAggregatedBuckets(days, 50);
     let buckets100 = c.getAggregatedBuckets(days, 100);
 
+    // For 3 days with hourly data, max possible buckets = floor(3*24*60/60) = 72
+    // so requesting 100 buckets gets capped to 72 to prevent empty (grey) buckets
     assert.strictEqual(buckets10.length, 10);
     assert.strictEqual(buckets50.length, 50);
-    assert.strictEqual(buckets100.length, 100);
+    assert.strictEqual(buckets100.length, 72);
 
     // Bucket sizes should be inversely proportional to bucket count
     let bucket10Size = buckets10[0].end - buckets10[0].start;
@@ -808,21 +810,23 @@ test("Test getAggregatedBuckets - Data granularity transitions", async (t) => {
     // This test verifies the critical transition from hourly data (≤30 days) to daily data (>30 days)
     // This boundary is important because it changes the data granularity and aggregation logic
 
-    // Test various day ranges around the 30-day boundary
+    // Test various day ranges around the 30-day boundary.
+    // For daily data (>30 days), buckets are capped at `days` to prevent empty (grey) buckets,
+    // since each daily data point covers exactly 1 day (1440 min granularity).
     const testRanges = [
-        { days: 30, buckets: 100, expectedDataType: "hourly" },
-        { days: 31, buckets: 100, expectedDataType: "daily" },
-        { days: 35, buckets: 100, expectedDataType: "daily" },
-        { days: 60, buckets: 100, expectedDataType: "daily" },
+        { days: 30, buckets: 100, expectedBuckets: 100, expectedDataType: "hourly" },
+        { days: 31, buckets: 100, expectedBuckets: 31, expectedDataType: "daily" },
+        { days: 35, buckets: 100, expectedBuckets: 35, expectedDataType: "daily" },
+        { days: 60, buckets: 100, expectedBuckets: 60, expectedDataType: "daily" },
     ];
 
-    for (const { days, buckets: bucketCount, expectedDataType } of testRanges) {
+    for (const { days, buckets: bucketCount, expectedBuckets, expectedDataType } of testRanges) {
         let buckets = c.getAggregatedBuckets(days, bucketCount);
 
         assert.strictEqual(
             buckets.length,
-            bucketCount,
-            `Should have exactly ${bucketCount} buckets for ${days} days (${expectedDataType} data)`
+            expectedBuckets,
+            `Should have ${expectedBuckets} buckets for ${days} days (${expectedDataType} data)`
         );
 
         // Verify no gaps between buckets - critical for UI display
@@ -919,9 +923,9 @@ test("Test getAggregatedBuckets - Mixed data granularity", async (t) => {
     let buckets7d = c.getAggregatedBuckets(7, 50);
     assert.strictEqual(buckets7d.length, 50);
 
-    // 35-day range should use daily data
+    // 35-day range should use daily data; capped to 35 buckets (1 per day)
     let buckets35d = c.getAggregatedBuckets(35, 70);
-    assert.strictEqual(buckets35d.length, 70);
+    assert.strictEqual(buckets35d.length, 35);
 
     // All should have some data
     assert.ok(buckets1d.some((b) => b.up > 0));

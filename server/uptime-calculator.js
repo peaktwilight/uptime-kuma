@@ -851,27 +851,34 @@ class UptimeCalculator {
         const now = this.getCurrentDate();
         const startTime = now.subtract(days, "day");
         const totalMinutes = days * 60 * 24;
-        const bucketSizeMinutes = totalMinutes / targetBuckets;
-
-        // Get raw data points from UptimeCalculator (sorted in descending order by timestamp)
+        // Get raw data points and track data granularity in minutes
         let rawDataPoints;
+        let dataGranularityMinutes;
 
         if (days <= 1) {
             const exactMinutes = Math.ceil(days * 24 * 60);
             rawDataPoints = this.getDataArray(exactMinutes, "minute");
+            dataGranularityMinutes = 1;
         } else if (days <= 30) {
             // For 1-30 days, use hourly data (up to 720 hours)
             const exactHours = Math.min(Math.ceil(days * 24), 720);
             rawDataPoints = this.getDataArray(exactHours, "hour");
+            dataGranularityMinutes = 60;
         } else {
             // For > 30 days, use daily data
             const requestDays = Math.min(days, 365);
             rawDataPoints = this.getDataArray(requestDays, "day");
+            dataGranularityMinutes = 60 * 24;
         }
 
-        // Create exactly targetBuckets buckets spanning the full requested time range
+        // Cap buckets so bucket size never goes below data granularity, which would create empty (grey) buckets
+        const maxPossibleBuckets = Math.floor(totalMinutes / dataGranularityMinutes);
+        const effectiveBuckets = Math.min(targetBuckets, maxPossibleBuckets);
+        const bucketSizeMinutes = totalMinutes / effectiveBuckets;
+
+        // Create exactly effectiveBuckets buckets spanning the full requested time range
         const buckets = [];
-        for (let i = 0; i < targetBuckets; i++) {
+        for (let i = 0; i < effectiveBuckets; i++) {
             const bucketStart = startTime.add(i * bucketSizeMinutes, "minute");
             const bucketEnd = startTime.add((i + 1) * bucketSizeMinutes, "minute");
 
