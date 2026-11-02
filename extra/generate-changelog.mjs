@@ -198,7 +198,7 @@ export async function generateChangelog(previousVersion, categorizedMap) {
 async function getPullRequestList(previousVersion, removeAuthor = false) {
     // Get the date of previousVersion in iso8601-strict format (2026-02-19T13:34:03+08:00) from git
     const previousVersionDate = childProcess
-        .execSync(`git log -1 --format=%cd --date=iso8601-strict ${previousVersion}`)
+        .execFileSync("git", ["log", "-1", "--format=%cd", "--date=iso8601-strict", "--end-of-options", previousVersion])
         .toString()
         .trim();
 
