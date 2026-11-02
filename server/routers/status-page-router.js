@@ -14,13 +14,37 @@ let router = express.Router();
 let cache = apicache.middleware;
 const server = UptimeKumaServer.getInstance();
 
+async function requirePublishedStatusPage(request, response, next) {
+    // The heartbeat route has the slug after the "heartbeat" segment. Its dedicated
+    // middleware checks that slug; skip it when the broader API prefix also matches.
+    if (request.path.startsWith("/api/status-page/heartbeat/")) {
+        return next();
+    }
+
+    try {
+        const slug = request.params.slug.toLowerCase();
+        const statusPage = await R.findOne("status_page", " slug = ? ", [slug]);
+        if (!statusPage || !statusPage.published) {
+            response.status(404).send("Status Page Not Found");
+            return;
+        }
+        next();
+    } catch (error) {
+        sendHttpError(response, error.message);
+    }
+}
+
+// Apply publication checks before cached public API responses.
+router.use("/api/status-page/heartbeat/:slug", requirePublishedStatusPage);
+router.use("/api/status-page/:slug", requirePublishedStatusPage);
+
 router.get("/status/:slug", cache("5 minutes"), async (request, response) => {
     let slug = request.params.slug;
     slug = slug.toLowerCase();
     await StatusPage.handleStatusPageResponse(response, server.indexHTML, slug);
 });
 
-router.get("/status/:slug/rss", cache("5 minutes"), async (request, response) => {
+router.get("/status/:slug/rss", requirePublishedStatusPage, cache("5 minutes"), async (request, response) => {
     let slug = request.params.slug;
     slug = slug.toLowerCase();
     await StatusPage.handleStatusPageRSSResponse(response, slug, request);
