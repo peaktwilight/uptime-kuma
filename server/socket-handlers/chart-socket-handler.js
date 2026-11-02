@@ -1,6 +1,7 @@
 const { checkLogin } = require("../util-server");
 const { UptimeCalculator } = require("../uptime-calculator");
 const { log } = require("../../src/util");
+const { R } = require("redbean-node");
 
 module.exports.chartSocketHandler = (socket) => {
     socket.on("getMonitorChartData", async (monitorID, period, callback) => {
@@ -11,6 +12,11 @@ module.exports.chartSocketHandler = (socket) => {
 
             if (period == null) {
                 throw new Error("Invalid period.");
+            }
+
+            const monitor = await R.findOne("monitor", "id = ? AND user_id = ?", [monitorID, socket.userID]);
+            if (!monitor) {
+                throw new Error("Monitor not found.");
             }
 
             let uptimeCalculator = await UptimeCalculator.getUptimeCalculator(monitorID);
