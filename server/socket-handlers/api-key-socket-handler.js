@@ -98,7 +98,7 @@ module.exports.apiKeySocketHandler = (socket) => {
 
             log.debug("apikeys", `Disabled Key: ${keyID} User ID: ${socket.userID}`);
 
-            await R.exec("UPDATE api_key SET active = 0 WHERE id = ? ", [keyID]);
+            await R.exec("UPDATE api_key SET active = 0 WHERE id = ? AND user_id = ? ", [keyID, socket.userID]);
 
             apicache.clear();
 
