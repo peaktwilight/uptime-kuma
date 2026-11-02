@@ -46,7 +46,7 @@ router.get("/api/status-page/:slug", cache("5 minutes"), async (request, respons
         // Get Status Page
         let statusPage = await R.findOne("status_page", " slug = ? ", [slug]);
 
-        if (!statusPage) {
+        if (!statusPage || !statusPage.published) {
             sendHttpError(response, "Status Page Not Found");
             return null;
         }
@@ -85,7 +85,11 @@ router.get("/api/status-page/heartbeat/:slug", cache("1 minutes"), async (reques
 
         // Get the status page to determine the heartbeat range
         let statusPage = await R.findOne("status_page", " id = ? ", [statusPageID]);
-        let heartbeatBarDays = statusPage ? statusPage.heartbeat_bar_days || 0 : 0;
+        if (!statusPage || !statusPage.published) {
+            sendHttpError(response, "Status Page Not Found");
+            return;
+        }
+        let heartbeatBarDays = statusPage.heartbeat_bar_days || 0;
 
         // Get max beats parameter from query string (for client-side screen width constraints)
         const maxBeats = Math.min(parseInt(request.query.maxBeats) || 100, 100);
@@ -180,7 +184,7 @@ router.get("/api/status-page/:slug/manifest.json", cache("1440 minutes"), async 
         // Get Status Page
         let statusPage = await R.findOne("status_page", " slug = ? ", [slug]);
 
-        if (!statusPage) {
+        if (!statusPage || !statusPage.published) {
             sendHttpError(response, "Not Found");
             return;
         }

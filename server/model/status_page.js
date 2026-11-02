@@ -38,7 +38,7 @@ class StatusPage extends BeanModel {
     static async handleStatusPageRSSResponse(response, slug, request) {
         let statusPage = await R.findOne("status_page", " slug = ? ", [slug]);
 
-        if (statusPage) {
+        if (statusPage && statusPage.published) {
             const feedUrl = await StatusPage.buildRSSUrl(slug, request);
             response.type("application/rss+xml");
             response.send(await StatusPage.renderRSS(statusPage, feedUrl));
@@ -63,7 +63,7 @@ class StatusPage extends BeanModel {
 
         let statusPage = await R.findOne("status_page", " slug = ? ", [slug]);
 
-        if (statusPage) {
+        if (statusPage && statusPage.published) {
             response.send(await StatusPage.renderHTML(indexHTML, statusPage));
         } else {
             response.status(404).send(UptimeKumaServer.getInstance().indexHTML);
