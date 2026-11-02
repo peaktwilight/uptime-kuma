@@ -1635,6 +1635,11 @@ let needSetup = false;
             try {
                 checkLogin(socket);
 
+                const monitor = await R.findOne("monitor", " id = ? AND user_id = ? ", [monitorID, socket.userID]);
+                if (!monitor) {
+                    throw new Error("Monitor not found or not yours.");
+                }
+
                 log.info("manage", `Clear Events Monitor: ${monitorID} User ID: ${socket.userID}`);
 
                 await R.exec("UPDATE heartbeat SET msg = ?, important = ? WHERE monitor_id = ? ", ["", "0", monitorID]);
