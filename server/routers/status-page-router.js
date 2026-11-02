@@ -14,30 +14,53 @@ let router = express.Router();
 let cache = apicache.middleware;
 const server = UptimeKumaServer.getInstance();
 
-router.get("/status/:slug", cache("5 minutes"), async (request, response) => {
+/**
+ * Prevent public routes from serving a status page before it is published.
+ * @param {Request} request Express request
+ * @param {Response} response Express response
+ * @param {Function} next Express next callback
+ * @returns {Promise<void>}
+ */
+const requirePublishedStatusPage = async (request, response, next) => {
+    try {
+        const slug = (request.params.slug || "default").toLowerCase();
+        const statusPage = await R.findOne("status_page", " slug = ? ", [slug]);
+
+        if (!statusPage || !statusPage.published) {
+            sendHttpError(response, "Status Page Not Found");
+            return;
+        }
+
+        next();
+    } catch (error) {
+        sendHttpError(response, error.message);
+    }
+};
+
+router.get("/status/:slug", requirePublishedStatusPage, cache("5 minutes"), async (request, response) => {
     let slug = request.params.slug;
     slug = slug.toLowerCase();
     await StatusPage.handleStatusPageResponse(response, server.indexHTML, slug);
 });
 
-router.get("/status/:slug/rss", cache("5 minutes"), async (request, response) => {
+router.get("/status/:slug/rss", requirePublishedStatusPage, cache("5 minutes"), async (request, response) => {
     let slug = request.params.slug;
     slug = slug.toLowerCase();
     await StatusPage.handleStatusPageRSSResponse(response, slug, request);
 });
 
-router.get("/status", cache("5 minutes"), async (request, response) => {
+router.get("/status", requirePublishedStatusPage, cache("5 minutes"), async (request, response) => {
     let slug = "default";
     await StatusPage.handleStatusPageResponse(response, server.indexHTML, slug);
 });
 
-router.get("/status-page", cache("5 minutes"), async (request, response) => {
+router.get("/status-page", requirePublishedStatusPage, cache("5 minutes"), async (request, response) => {
     let slug = "default";
     await StatusPage.handleStatusPageResponse(response, server.indexHTML, slug);
 });
 
 // Status page config, incident, monitor list
-router.get("/api/status-page/:slug", cache("5 minutes"), async (request, response) => {
+router.get("/api/status-page/:slug", requirePublishedStatusPage, cache("5 minutes"), async (request, response) => {
     allowDevAllOrigin(response);
     let slug = request.params.slug;
     slug = slug.toLowerCase();
@@ -62,7 +85,7 @@ router.get("/api/status-page/:slug", cache("5 minutes"), async (request, respons
 
 // Status Page Polling Data
 // Can fetch only if published
-router.get("/api/status-page/heartbeat/:slug", cache("1 minutes"), async (request, response) => {
+router.get("/api/status-page/heartbeat/:slug", requirePublishedStatusPage, cache("1 minutes"), async (request, response) => {
     allowDevAllOrigin(response);
 
     try {
@@ -171,7 +194,7 @@ router.get("/api/status-page/heartbeat/:slug", cache("1 minutes"), async (reques
 });
 
 // Status page's manifest.json
-router.get("/api/status-page/:slug/manifest.json", cache("1440 minutes"), async (request, response) => {
+router.get("/api/status-page/:slug/manifest.json", requirePublishedStatusPage, cache("1440 minutes"), async (request, response) => {
     allowDevAllOrigin(response);
     let slug = request.params.slug;
     slug = slug.toLowerCase();
