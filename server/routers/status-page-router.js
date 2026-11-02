@@ -11,7 +11,24 @@ const dayjs = require("dayjs");
 
 let router = express.Router();
 
-let cache = apicache.middleware;
+let cache = (duration) => {
+    const cacheMiddleware = apicache.middleware(duration);
+    return async (request, response, next) => {
+        try {
+            const slug = (request.params.slug || "default").toLowerCase();
+            const statusPage = await R.findOne("status_page", " slug = ? ", [slug]);
+
+            if (!statusPage || !statusPage.published) {
+                response.status(404).send("Status Page Not Found");
+                return;
+            }
+
+            cacheMiddleware(request, response, next);
+        } catch (error) {
+            next(error);
+        }
+    };
+};
 const server = UptimeKumaServer.getInstance();
 
 router.get("/status/:slug", cache("5 minutes"), async (request, response) => {
