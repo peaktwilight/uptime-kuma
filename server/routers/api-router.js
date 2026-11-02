@@ -314,9 +314,6 @@ router.get("/api/badge/:id/ping/:duration?", cache("5 minutes"), async (request,
         // Check if monitor is public
         const publicMonitor = await isMonitorPublic(requestedMonitorId);
 
-        const uptimeCalculator = await UptimeCalculator.getUptimeCalculator(requestedMonitorId);
-        const avgPing = uptimeCalculator.getDataByDuration(requestedDuration).avgPing;
-
         const badgeValues = { style };
 
         if (!publicMonitor) {
@@ -325,6 +322,8 @@ router.get("/api/badge/:id/ping/:duration?", cache("5 minutes"), async (request,
             badgeValues.message = "N/A";
             badgeValues.color = badgeConstants.naColor;
         } else {
+            const uptimeCalculator = await UptimeCalculator.getUptimeCalculator(requestedMonitorId);
+            const avgPing = uptimeCalculator.getDataByDuration(requestedDuration).avgPing;
             const avgPingValue = parseInt(overrideValue ?? avgPing);
 
             badgeValues.color = color;
