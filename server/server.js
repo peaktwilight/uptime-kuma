@@ -444,7 +444,7 @@ let needSetup = false;
             }
 
             // Login Rate Limit
-            if (!(await loginRateLimiter.pass(callback))) {
+            if (!(await loginRateLimiter.pass(callback, 1, clientIP))) {
                 log.info("auth", `Too many failed requests for user ${data.username}. IP=${clientIP}`);
                 return;
             }

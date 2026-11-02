@@ -8,8 +8,25 @@ class KumaRateLimiter {
     constructor(config) {
         this.errorMessage = config.errorMessage;
         this.rateLimiter = new RateLimiter(config);
+        this.config = config;
+        this.keyedRateLimiters = new Map();
+        this.maxKeyedRateLimiters = 10000;
     }
 
+    getRateLimiter(key) {
+        let rateLimiter = this.keyedRateLimiters.get(key);
+        if (rateLimiter) {
+            this.keyedRateLimiters.delete(key);
+        } else {
+            if (this.keyedRateLimiters.size >= this.maxKeyedRateLimiters) {
+                const oldestKey = this.keyedRateLimiters.keys().next().value;
+                this.keyedRateLimiters.delete(oldestKey);
+            }
+            rateLimiter = new RateLimiter(this.config);
+        }
+        this.keyedRateLimiters.set(key, rateLimiter);
+        return rateLimiter;
+    }
     /**
      * Callback for pass
      * @callback passCB
@@ -22,8 +39,8 @@ class KumaRateLimiter {
      * @param {number} num Number of tokens to remove
      * @returns {Promise<boolean>} Should the request be allowed?
      */
-    async pass(callback, num = 1) {
-        const remainingRequests = await this.removeTokens(num);
+    async pass(callback, num = 1, key) {
+        const remainingRequests = await this.removeTokens(num, key);
         log.info("rate-limit", "remaining requests: " + remainingRequests);
         if (remainingRequests < 0) {
             if (callback) {
@@ -42,8 +59,9 @@ class KumaRateLimiter {
      * @param {number} num Number of tokens to remove
      * @returns {Promise<number>} Number of remaining tokens
      */
-    async removeTokens(num = 1) {
-        return await this.rateLimiter.removeTokens(num);
+    async removeTokens(num = 1, key) {
+        const rateLimiter = key === undefined ? this.rateLimiter : this.getRateLimiter(key);
+        return await rateLimiter.removeTokens(num);
     }
 }
 
