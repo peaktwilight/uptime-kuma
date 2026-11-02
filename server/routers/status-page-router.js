@@ -73,6 +73,13 @@ router.get("/api/status-page/heartbeat/:slug", cache("1 minutes"), async (reques
         slug = slug.toLowerCase();
         let statusPageID = await StatusPage.slugToID(slug);
 
+        // Get the status page before querying monitor data; unpublished pages must not expose heartbeat data.
+        let statusPage = await R.findOne("status_page", " id = ? ", [statusPageID]);
+        if (statusPage && !statusPage.published) {
+            sendHttpError(response, "Status Page Not Found");
+            return;
+        }
+
         let monitorIDList = await R.getCol(
             `
             SELECT monitor_group.monitor_id FROM monitor_group, \`group\`
@@ -83,8 +90,6 @@ router.get("/api/status-page/heartbeat/:slug", cache("1 minutes"), async (reques
             [statusPageID]
         );
 
-        // Get the status page to determine the heartbeat range
-        let statusPage = await R.findOne("status_page", " id = ? ", [statusPageID]);
         let heartbeatBarDays = statusPage ? statusPage.heartbeat_bar_days || 0 : 0;
 
         // Get max beats parameter from query string (for client-side screen width constraints)
