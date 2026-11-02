@@ -20,7 +20,7 @@ router.get("/status/:slug", cache("5 minutes"), async (request, response) => {
     await StatusPage.handleStatusPageResponse(response, server.indexHTML, slug);
 });
 
-router.get("/status/:slug/rss", cache("5 minutes"), async (request, response) => {
+router.get("/status/:slug/rss", async (request, response) => {
     let slug = request.params.slug;
     slug = slug.toLowerCase();
     await StatusPage.handleStatusPageRSSResponse(response, slug, request);
